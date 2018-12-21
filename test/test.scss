@@ -1,0 +1,383 @@
+@import "node_modules/sass-true/sass/true";
+@import "../_recursive-map-merge";
+
+$config: ();
+
+@include describe('recursive-map-merge() function') {
+
+	@include it('Merges flat maps the same way as map-merge()') {
+		$a: (
+			'a': 'A',
+			'b': 'B',
+		);
+		$b: (
+			'c': 'C',
+			'd': 'D',
+			'a': 'overwrite A',
+		);
+		@include assert-equal(
+			recursive-map-merge($a, $b, $config),
+			map_merge($a, $b)
+		);
+		@include assert-equal(
+			recursive-map-merge($a, $b, $config),
+			(
+				'b': 'B',
+				'c': 'C',
+				'd': 'D',
+				'a': 'overwrite A',
+			)
+		);
+	}
+
+	@include it('Merges 1 layer nested maps') {
+		$a: (
+			'1': (
+				'a': 'A',
+				'b': 'B',
+			),
+			'2': (
+				'c': 'C',
+				'd': 'D',
+			),
+		);
+		$b: (
+			'3': (
+				'e': 'E',
+				'f': 'F',
+			),
+			'2': (
+				'd': 'overwrite D',
+				'z': 'newvalue Z',
+				'c': 'C', // unaltered
+			),
+			'1': (
+				'b': 'B', // unaltered
+			),
+		);
+		@include assert-equal(
+			recursive-map-merge($a, $b, $config),
+			(
+				'1': (
+					'a': 'A',
+					'b': 'B',
+				),
+				'2': (
+					'c': 'C',
+					'd': 'overwrite D',
+					'z': 'newvalue Z',
+				),
+				'3': (
+					'e': 'E',
+					'f': 'F',
+				),
+			)
+		);
+	}
+
+	@include it('Merges 2 layer nested maps') {
+		$a: (
+			'1': (
+				'a': (
+					'A': 1,
+					'B': 2,
+				),
+				'b': (
+					'C': 3,
+					'D': 4,
+				),
+			),
+			'2': (
+				'c': (
+					'E': 5,
+					'F': 6,
+				),
+				'd': (
+					'G': 7,
+					'H': 8,
+				),
+			),
+		);
+		$b: (
+			'3': (
+				'e': (
+					'I': 9,
+					'J': 10,
+				),
+				'f': (
+					'K': 11,
+					'L': 12,
+				),
+			),
+			'1': (
+				'b': (
+					'C': 'overwrite c',
+					'D': 4, // unaltered
+				),
+				'a': (
+					'A': 1,  // unaltered
+					'Z': 'newvalue Z',
+				),
+				'z': (
+					'x': 99,
+					'y': 98,
+				)
+			),
+		);
+		@include assert-equal(
+			recursive-map-merge($a, $b, $config),
+			(
+				'1': (
+					'a': (
+						'A': 1,
+						'B': 2,
+						'Z': 'newvalue Z',
+					),
+					'b': (
+						'C': 'overwrite c',
+						'D': 4,
+					),
+					'z': (
+						'x': 99,
+						'y': 98,
+					)
+				),
+				'2': (
+					'c': (
+						'E': 5,
+						'F': 6,
+					),
+					'd': (
+						'G': 7,
+						'H': 8,
+					),
+				),
+				'3': (
+					'e': (
+						'I': 9,
+						'J': 10,
+					),
+					'f': (
+						'K': 11,
+						'L': 12,
+					),
+				),
+			)
+		);
+	}
+
+	@include describe("'join-lists' config behaviour") {
+
+		$config-join-lists: (
+			'join-lists': true,
+		);
+
+		@include it('Joins simple lists together') {
+			$a: (
+				1: ('a', 'b'),
+				2: ('c', 'd'),
+			);
+			$b: (
+				1: ('z', 'y'),
+				2: ('x', 'w'),
+			);
+			@include assert-equal(
+				recursive-map-merge($a, $b, $config-join-lists),
+				(
+					1: ('a', 'b', 'z', 'y'),
+					2: ('c', 'd', 'x', 'w'),
+				)
+			);
+		}
+
+		@include it('Adds new single-values to existing lists') {
+			$a: (
+				1: ('a', 'b'),
+				2: ('c', 'd'),
+			);
+			$b: (
+				1: 'z',
+				2: 'y',
+			);
+			@include assert-equal(
+				recursive-map-merge($a, $b, $config-join-lists),
+				(
+					1: ('a', 'b', 'z',),
+					2: ('c', 'd', 'y'),
+				)
+			);
+		}
+
+		@include describe('Does overwrite lists') {
+			@include it('with map') {
+				$a: (
+					1: 'a',
+				);
+				$b: (
+					1: ('a': 'A', 'b': 'B'),
+				);
+				@include assert-equal(
+					recursive-map-merge($a, $b, $config-join-lists),
+					(
+						1: ('a': 'A', 'b': 'B'),
+					)
+				);
+			}
+		}
+
+		@include describe('Does not overwrite lists') {
+
+			@include it('with NULL') {
+				$a: (
+					1: ('a', 'b'),
+				);
+				$b: (
+					1: null,
+				);
+				@include assert-equal(
+					recursive-map-merge($a, $b, $config-join-lists),
+					(
+						1: ('a', 'b'),
+					)
+				);
+			}
+
+			@include it('with empty-lists') {
+				$a: (
+					1: ('a', 'b'),
+				);
+				$b: (
+					1: (),
+				);
+				@include assert-equal(
+					recursive-map-merge($a, $b, $config-join-lists),
+					(
+						1: ('a', 'b'),
+					)
+				);
+			}
+		}
+
+		@include describe('Does overwrite single values') {
+			@include it('with NULL') {
+				$a: (
+					1: 'a',
+				);
+				$b: (
+					1: null,
+				);
+				@include assert-equal(
+					recursive-map-merge($a, $b, $config-join-lists),
+					(
+						1: null,
+					)
+				);
+			}
+			@include it('with map') {
+				$a: (
+					1: 'a',
+				);
+				$b: (
+					1: ('a': 'A', 'b': 'B'),
+				);
+				@include assert-equal(
+					recursive-map-merge($a, $b, $config-join-lists),
+					(
+						1: ('a': 'A', 'b': 'B'),
+					)
+				);
+			}
+		}
+
+		@include describe('Does not overwrite single values') {
+			@include it('with empty-lists') {
+				$a: (
+					1: 'A',
+				);
+				$b: (
+					1: (),
+				);
+				@include assert-equal(
+					recursive-map-merge($a, $b, $config-join-lists),
+					(
+						1: 'A',
+					)
+				);
+			}
+		}
+
+		@include describe('Does overwrite empty lists') {
+
+			@include it('with new lists') {
+				$a: (
+					1: (),
+				);
+				$b: (
+					1: ('a', 'b'),
+				);
+				@include assert-equal(
+					recursive-map-merge($a, $b, $config-join-lists),
+					(
+						1: ('a', 'b'),
+					)
+				);
+			}
+
+			@include it('with new single values') {
+				$a: (
+					1: (),
+				);
+				$b: (
+					1: 'a',
+				);
+				@include assert-equal(
+					recursive-map-merge($a, $b, $config-join-lists),
+					(
+						1: 'a',
+					)
+				);
+			}
+
+			@include describe("With config argument 'join-separator': 'comma'") {
+
+				$config-join-lists-comma: (
+					'join-lists': true,
+					'join-separator': 'comma',
+				);
+
+				@include it('with new lists') {
+					$a: (
+						1: (),
+					);
+					$b: (
+						1: ('a', 'b'),
+					);
+					@include assert-equal(
+						recursive-map-merge($a, $b, $config-join-lists-comma),
+						(
+							1: ('a', 'b'),
+						)
+					);
+				}
+
+				@include it('with new single values') {
+					$a: (
+						1: (),
+					);
+					$b: (
+						1: 'a',
+					);
+					@include assert-equal(
+						recursive-map-merge($a, $b, $config-join-lists-comma),
+						(
+							1: 'a',
+						)
+					);
+				}
+
+			}
+		} // Does overwrite empty lists
+
+	} // join-list
+
+}

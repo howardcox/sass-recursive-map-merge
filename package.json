@@ -19,5 +19,15 @@
   "bugs": {
     "url": "https://github.com/pentzzsolt/sass-recursive-map-merge/issues"
   },
-  "homepage": "https://github.com/pentzzsolt/sass-recursive-map-merge#readme"
+  "homepage": "https://github.com/pentzzsolt/sass-recursive-map-merge#readme",
+  "devDependencies": {
+    "mocha": "^5.2.0",
+    "node-sass": "^4.11.0",
+    "sass-true": "^4.0.0",
+    "docs": "sassdoc ./scss"
+  },
+  "scripts": {
+    "test": "mocha ./test"
+  },
+  "sass": "_recursive-map-merge.scss"
 }

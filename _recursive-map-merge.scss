@@ -1,22 +1,77 @@
+///
+/// Merge multidimensional maps recursively.
+///
+/// @param {Map} $map1 - First map to be merged
+/// @param {Map} $map2 - Second map to be merged
+/// @param {Map} $config - (Optional) Configure the behaviour
+/// @return {Map}
+/// 
+/// $config keys:
+///     'join-lists' {Boolean} - If true then if both maps have a list with the
+///                              same key, they will be joined rather than
+///                              overwriting map1 with map2. Default false, will
+///                              behave like map-merge() and keep the value from
+///                              map2.
+///
+///     'join-separator' {String} - Separator to pass to the join() function if
+///                                 'join-lists' is true. Defaults to null to
+//                                   use join()'s default behaviour.
+///
 @function recursive-map-merge($map1, $map2, $config:() ) {
     @if ((type-of($map1) == map or type-of($map1) == list) and (type-of($map2) == map or type-of($map2) == list)) {
+
+        // Get config once to avoid repeated map-get() in @each below
+        $config-join-lists: map-get($config, 'join-lists');
+        $config-join-separator: map-get($config, 'join-separator');
+        @if ($config-join-separator == null)
+        {
+            $config-join-separator: auto;
+        }
+
         $result: $map1;
-        @each $key, $value in $map2 {
-            @if (type-of(map-get($result, $key)) == map and type-of($value) == map) {
-                $result: map-merge($result, ($key: recursive-map-merge(map-get($result, $key), $value)));
+
+        @each $key, $map2Value in $map2 {
+            $resultValue: map-get($result, $key);
+            @if (type-of($resultValue) == map and type-of($map2Value) == map) {
+                $result: map-merge($result, ($key: recursive-map-merge($resultValue, $map2Value, $config) ));
             }
-            @else if ( map-get($config, 'merge-lists') and type-of(map-get($result, $key)) == list and type-of($value) == list)
+            @else if ($config-join-lists // Only join together if either side is a list, or if both are the same type
+                and (  type-of($resultValue) == type-of($map2Value)
+                    or type-of($resultValue) == list
+                    or type-of($map2Value) == list
+                )
+            )
             {
-                $result: map-merge($result, ($key: join(map-get($result, $key), $value)));
+                @if ($resultValue != null
+                    and $map2Value != null
+                    and length($resultValue) > 0
+                    and length($map2Value) > 0
+                )
+                {
+                    // Both values are not null/empty, join them
+                    $result: map-merge($result, ($key: join($resultValue, $map2Value, $config-join-separator)));
+                }
+                @else if ($resultValue == null or length($resultValue) == 0)
+                {
+                    // resultValue is null/empty, pick map2Value
+                    $result: map-merge($result, ($key: $map2Value));
+                }
+                @else if ($map2Value == null or length($map2Value) == 0)
+                {
+                    // map2Value is null/empty, pick resultValue
+                    $result: map-merge($result, ($key: $resultValue));
+                }
             }
             @else {
-                $result: map-merge($result, ($key: $value));
+                $result: map-merge($result, ($key: $map2Value));
             }
         }
+
         @return $result;
     }
     @else {
         @warn 'recursive-map-merge() expects it\'s parameters to be map types!';
+        @debug 'map1 type: #{type-of($map1)}, map2 type: #{type-of($map2)}';
         @return null;
     }
 }
